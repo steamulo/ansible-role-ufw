@@ -1,0 +1,17 @@
+---
+# defaults file for ufw-firewall
+
+ufw_whitelisted_addresses:
+ufw_whitelisted_addresses_extra: []
+
+ufw_whitelisted_out_ports: []
+ufw_whitelisted_out_ports_extra: []
+
+ufw_whitelisted_in_ports: []
+ufw_whitelisted_in_ports_extra:
+  - { port: 80, proto: tcp }
+  - { port: 443, proto: tcp }
+  - { port: 4949, proto: tcp } # MUNIN-NODE
+
+ufw_logging: "on"
+ufw_persistent: False
