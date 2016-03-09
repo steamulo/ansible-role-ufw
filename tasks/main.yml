@@ -10,6 +10,10 @@
 - name: Reset ufw settings
   ufw: state=reset
 
+- name: Install iptables-persistent if necessary
+  apt: name=iptables-persistent state=latest
+  when: ufw_persistent
+
 - name: Enable/Disable logging
   ufw: logging={{ ufw_logging }}
 
