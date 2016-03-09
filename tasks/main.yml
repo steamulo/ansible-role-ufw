@@ -1,14 +1,29 @@
 ---
 # tasks file for ufw-firewall
 
+- name: Honeypot to test check_mode
+  command: /bin/true
+  register: noop_result
+
+- name: Set a variable to know if ansible is runned in check_mode
+  set_fact: ansible_check_mode={{ noop_result|skipped }}
+
 - name: Update apt-cache if necessary
   apt: update_cache=yes cache_valid_time=3600
+  when: not ansible_check_mode
 
 - name: Install ufw packages
   apt: name=ufw state=latest
+  when: not ansible_check_mode
 
 - name: Reset ufw settings
   ufw: state=reset
+  when: not ansible_check_mode
+
+- name: Install iptables-persistent if necessary
+  apt: name=iptables-persistent state=latest
+  when: ufw_persistent
+  when: not ansible_check_mode
 
 - name: Install iptables-persistent if necessary
   apt: name=iptables-persistent state=latest
@@ -16,25 +31,31 @@
 
 - name: Enable/Disable logging
   ufw: logging={{ ufw_logging }}
+  when: not ansible_check_mode
 
 - name: Allow all traffic for whitelisted ips
   ufw: rule=allow src={{ item }}
   with_items: "{{ ufw_whitelisted_addresses}}"
+  when: not ansible_check_mode
 
 - name: Allow outgoing traffic on authorized out ports
   ufw: rule=allow to={{ item.to | default ("any") }} port={{ item.port }} proto={{ item.proto }} direction=out
   with_items: "{{ ufw_whitelisted_out_ports | union(ufw_whitelisted_out_ports_extra) }}"
+  when: not ansible_check_mode
 
 - name: Allow incoming traffic on authorized in ports
   ufw: rule=allow from={{ item.from | default ("any") }} port={{ item.port }} proto={{ item.proto }} direction=in
   with_items: "{{ ufw_whitelisted_in_ports | union(ufw_whitelisted_in_ports_extra) }}"
+  when: not ansible_check_mode
 
 - name: Allow all outgoing traffic
   ufw: policy=allow direction=outgoing
+  when: not ansible_check_mode
 
 - name: Deny all incoming traffic and enable firewall
   ufw: state=enabled policy=deny direction=incoming
+  when: not ansible_check_mode
 
 - name: Making rules persistent
   shell: invoke-rc.d iptables-persistent save
-  when: ufw_persistent
+  when: ufw_persistent and not ansible_check_mode
