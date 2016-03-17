@@ -39,12 +39,12 @@
   when: not ansible_check_mode
 
 - name: Allow outgoing traffic on authorized out ports
-  ufw: rule=allow to={{ item.to | default ("any") }} port={{ item.port }} proto={{ item.proto }} direction=out
+  ufw: rule=allow to_ip={{ item.to_ip | default ("any") }} to_port={{ item.to_port | default(None) }} proto={{ item.proto }} from_ip={{ item.from_ip | default("any") }} from_port={{ item.from_port | default(None) }} direction=out
   with_items: "{{ ufw_whitelisted_out_ports | union(ufw_whitelisted_out_ports_extra) }}"
   when: not ansible_check_mode
 
 - name: Allow incoming traffic on authorized in ports
-  ufw: rule=allow from={{ item.from | default ("any") }} port={{ item.port }} proto={{ item.proto }} direction=in
+  ufw: rule=allow from_ip={{ item.from_ip | default ("any") }} to_port={{ item.to_port | default(None) }} proto={{ item.proto }} to_ip={{ item.to_ip | default ("any") }} from_port={{ item.from_port | default(None) }} direction=in
   with_items: "{{ ufw_whitelisted_in_ports | union(ufw_whitelisted_in_ports_extra) }}"
   when: not ansible_check_mode
 

@@ -14,14 +14,14 @@ Role Variables
     
 ```    
     ufw_whitelisted_out_ports_extra:
-           - { port: 22, proto: 'tcp', to: '192.168.1.1' }
+           - { to_port: 22, proto: 'tcp', to_ip: '192.168.1.1' }
 ```
 
 - **ufw_whitelisted_in_ports_extra**: list of whitelisted incoming ports
 
 ```    
     ufw_whitelisted_in_ports_extra:
-           - { port: 22, proto: 'tcp', from: '192.168.1.1' }
+           - { to_port: 22, proto: 'tcp', from_ip: '192.168.1.1' }
 ```
 
 - **ufw_persistent**: Make rules persistent after reboot (/!\ be careful)
