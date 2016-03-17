@@ -9,9 +9,9 @@ ufw_whitelisted_out_ports_extra: []
 
 ufw_whitelisted_in_ports: []
 ufw_whitelisted_in_ports_extra:
-  - { port: 80, proto: tcp }
-  - { port: 443, proto: tcp }
-  - { port: 4949, proto: tcp } # MUNIN-NODE
+  - { to_port: 80, proto: tcp }
+  - { to_port: 443, proto: tcp }
+  - { to_port: 4949, proto: tcp } # MUNIN-NODE
 
 ufw_logging: "on"
 ufw_persistent: False
