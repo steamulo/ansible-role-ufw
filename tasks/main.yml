@@ -48,8 +48,12 @@
   with_items: "{{ ufw_whitelisted_in_ports | union(ufw_whitelisted_in_ports_extra) }}"
   when: not ansible_check_mode
 
-- name: Drop all
-  ufw: rule=reject direction=in
+- name: Drop all inputs ipv4
+  lineinfile: dest=/etc/ufw/after.rules insertbefore="COMMIT" state=present line="-A ufw-reject-input -j DROP"
+  when: "{{root_nbd}}"
+  
+- name: Drop all inputs ipv6
+  lineinfile: dest=/etc/ufw/after6.rules insertbefore="COMMIT" state=present line="-A ufw6-reject-input -j DROP"
   when: "{{root_nbd}}"
 
 - name: Allow all outgoing traffic
