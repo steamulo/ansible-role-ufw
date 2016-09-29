@@ -19,3 +19,4 @@ ufw_whitelisted_in_ports_extra: []
 
 ufw_logging: "on"
 ufw_persistent: False
+root_nbd: false
