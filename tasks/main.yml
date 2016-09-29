@@ -22,8 +22,7 @@
 
 - name: Install iptables-persistent if necessary
   apt: name=iptables-persistent state=latest
-  when: ufw_persistent
-  when: not ansible_check_mode
+  when: ufw_persistent and not ansible_check_mode
 
 - name: Install iptables-persistent if necessary
   apt: name=iptables-persistent state=latest
