@@ -34,7 +34,7 @@
 
 - name: Allow all traffic for whitelisted ips
   ufw: rule=allow src={{ item }}
-  with_items: "{{ ufw_whitelisted_addresses}}"
+  with_items: "{{ ufw_whitelisted_addresses | union(ufw_whitelisted_addresses_extra) }}"
   when: not ansible_check_mode
 
 - name: Allow outgoing traffic on authorized out ports
