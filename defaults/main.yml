@@ -2,16 +2,20 @@
 # defaults file for ufw-firewall
 
 ufw_whitelisted_addresses:
+# deal with 2 levels of overriding
 ufw_whitelisted_addresses_extra: []
 
 ufw_whitelisted_out_ports: []
+# deal with 2 levels of overriding
 ufw_whitelisted_out_ports_extra: []
 
-ufw_whitelisted_in_ports: []
-ufw_whitelisted_in_ports_extra:
+# By default open for all the world for ssh, web and ssl
+ufw_whitelisted_in_ports:
+  - { to_port: 22, proto: tcp }
   - { to_port: 80, proto: tcp }
   - { to_port: 443, proto: tcp }
-  - { to_port: 4949, proto: tcp } # MUNIN-NODE
+# deal with 2 levels of overriding
+ufw_whitelisted_in_ports_extra: []
 
 # raw iptables rules evaluated before any rules added via the ufw command
 advanced_ufw_before_rules: ""
