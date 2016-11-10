@@ -17,6 +17,10 @@ ufw_whitelisted_in_ports:
 # deal with 2 levels of overriding
 ufw_whitelisted_in_ports_extra: []
 
+# raw iptables rules evaluated before any rules added via the ufw command
+advanced_ufw_before_rules: ""
+# raw iptables rules evaluated after any rules added via the ufw command
+advanced_ufw_after_rules: ""
+
 ufw_logging: "on"
-ufw_persistent: False
 root_nbd: false
