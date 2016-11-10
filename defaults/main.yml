@@ -13,6 +13,10 @@ ufw_whitelisted_in_ports_extra:
   - { to_port: 443, proto: tcp }
   - { to_port: 4949, proto: tcp } # MUNIN-NODE
 
+# raw iptables rules evaluated before any rules added via the ufw command
+advanced_ufw_before_rules: ""
+# raw iptables rules evaluated after any rules added via the ufw command
+advanced_ufw_after_rules: ""
+
 ufw_logging: "on"
-ufw_persistent: False
 root_nbd: false
