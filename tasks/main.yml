@@ -12,22 +12,13 @@
   ufw: state=reset
   when: not ansible_check_mode
 
-- name: Install iptables-persistent if necessary
-  apt: name=iptables-persistent state=latest
-  when:
-    - ufw_persistent and not ansible_check_mode
-
-- name: Install iptables-persistent if necessary
-  apt: name=iptables-persistent state=latest
-  when: ufw_persistent
-
 - name: Enable/Disable logging
   ufw: logging={{ ufw_logging }}
   when: not ansible_check_mode
 
 - name: Allow all traffic for whitelisted ips
   ufw: rule=allow src={{ item }}
-  with_items: "{{ ufw_whitelisted_addresses}}"
+  with_items: "{{ ufw_whitelisted_addresses | union(ufw_whitelisted_addresses_extra) }}"
   when: not ansible_check_mode
 
 - name: Allow outgoing traffic on authorized out ports
@@ -40,14 +31,34 @@
   with_items: "{{ ufw_whitelisted_in_ports | union(ufw_whitelisted_in_ports_extra) }}"
   when: not ansible_check_mode
 
+- name: Add advanced ufw before rules
+  blockinfile: dest=/etc/ufw/before.rules insertbefore="COMMIT" state=present block="{{ advanced_ufw_before_rules }}"
+  when: not ansible_check_mode
+
+- name: Add advanced ufw after rules
+  blockinfile: dest=/etc/ufw/after.rules insertbefore="COMMIT" state=present block="{{ advanced_ufw_after_rules }}"
+  when: not ansible_check_mode
+
+- name: Drop all inputs ipv4
+  lineinfile: dest=/etc/ufw/after.rules insertbefore="COMMIT" state=present line="-A ufw-reject-input -j DROP"
+  when: "{{root_nbd}} and not ansible_check_mode"
+
+- name: Drop all inputs ipv6
+  lineinfile: dest=/etc/ufw/after6.rules insertbefore="COMMIT" state=present line="-A ufw6-reject-input -j DROP"
+  when: "{{root_nbd}} and not ansible_check_mode"
+
 - name: Allow all outgoing traffic
   ufw: policy=allow direction=outgoing
   when: not ansible_check_mode
 
-- name: Deny all incoming traffic and enable firewall
-  ufw: state=enabled policy=deny direction=incoming
+- name: Deny or Allow all incoming traffic
+  ufw: policy={{ root_nbd | ternary('allow','deny') }} direction=incoming
   when: not ansible_check_mode
 
-- name: Making rules persistent
-  shell: invoke-rc.d iptables-persistent save
-  when: ufw_persistent and not ansible_check_mode
+# Ensure no iptable-persitent, as its handled by ufw
+- name: Install iptables-persistent if necessary
+  apt: name=iptables-persistent state=absent
+
+- name: Enable firewall
+  ufw: state=enabled
+  when: not ansible_check_mode
