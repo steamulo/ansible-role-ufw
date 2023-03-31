@@ -8,6 +8,33 @@
   apt: name=ufw state=latest
   when: not ansible_check_mode
 
+# Store current rules in a variable
+- name: Retrieve current ufw rules
+  command: ufw status numbered
+  register: ufw_current_rules
+  when: not ansible_check_mode
+
+# Parse the current rules and extract the rule numbers
+# of the rules that need to be removed
+- name: Find rule numbers to remove
+  set_fact:
+    ufw_rule_numbers_to_remove: "{{ ufw_rule_numbers_to_remove | default([]) + [item.split()[0]] }}"
+  when: "'ALLOW' in item and not item in ufw_desired_rules"
+  with_items: "{{ ufw_current_rules.stdout_lines }}"
+
+# Remove only the rules that need to be removed
+- name: Remove unnecessary ufw rules
+  command: "ufw delete {{ item }}"
+  with_items: "{{ ufw_rule_numbers_to_remove }}"
+  when: not ansible_check_mode
+
+# Add the desired rules if they don't already exist
+- name: Add missing ufw rules
+  ufw: rule="{{ item }}"
+  with_items: "{{ ufw_desired_rules }}"
+  when: "'ALLOW' in item and not item in ufw_current_rules.stdout_lines"
+  when: not ansible_check_mode
+
 - name: Reset ufw settings
   ufw: state=reset
   when: not ansible_check_mode
