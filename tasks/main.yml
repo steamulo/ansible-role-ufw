@@ -35,9 +35,9 @@
   when: "'ALLOW' in item and not item in ufw_current_rules.stdout_lines"
   when: not ansible_check_mode
 
-- name: Reset ufw settings
-  ufw: state=reset
-  when: not ansible_check_mode
+#- name: Reset ufw settings
+#  ufw: state=reset
+#  when: not ansible_check_mode
 
 - name: Enable/Disable logging
   ufw: logging={{ ufw_logging }}
