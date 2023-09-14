@@ -16,3 +16,6 @@ galaxy_info:
   categories: []
 
 dependencies: []
+
+collections:
+  - community.general
