@@ -72,7 +72,14 @@
       set_fact:
         current_ufw_incoming_ports: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'IN') | selectattr('action', 'equalto', 'ALLOW') | list }}"
 
-    - debug: var=current_ufw_incoming_ports
+    - name: Debug ufw_whitelisted_in_ports
+      debug:
+        var: ufw_whitelisted_in_ports
+
+    - name: Debug ufw_whitelisted_in_ports_extra
+      debug:
+        var: ufw_whitelisted_in_ports_extra
+
 
     - name: Add incoming traffic rules if not present
       ufw:
