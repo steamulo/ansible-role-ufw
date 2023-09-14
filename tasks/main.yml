@@ -36,7 +36,7 @@
   block:
     - name: Get the current UFW rules for whitelisted IPs
       set_fact:
-        current_ufw_whitelisted_ips: "{{ ufwParsed.rules | selectattr('action', 'equalto', 'ALLOW') | map(attribute='to_ip') | list }}"
+        current_ufw_whitelisted_ips: "{{ ufw_parsed.rules | selectattr('action', 'equalto', 'ALLOW') | map(attribute='to_ip') | list }}"
         
     - debug: var=current_ufw_whitelisted_ips
       
