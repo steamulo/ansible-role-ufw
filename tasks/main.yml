@@ -96,7 +96,7 @@
         from_port: "{{ item.from_ports | default(None) }}"
         direction: in
       with_items: "{{ current_ufw_incoming_ports }}"
-      when: not ansible_check_mode and not current_ufw_incoming_ports | selectattr('from_ip', 'eq', item.from_ip) | selectattr('to_port', 'eq', item.to_ports|default(None)) | selectattr('proto', 'eq', item.to_transport) | selectattr('to_ip', 'eq', item.to_ip) | selectattr('from_port', 'eq', item.from_ports|default(None)) | list | length == 0
+      when: not ansible_check_mode and not ufw_whitelisted_in_ports | union(ufw_whitelisted_in_ports_extra) | selectattr('from_ip', 'eq', item.from_ip) | selectattr('to_port', 'eq', item.to_ports|default(None)) | selectattr('proto', 'eq', item.to_transport) | selectattr('to_ip', 'eq', item.to_ip) | selectattr('from_port', 'eq', item.from_ports|default(None)) | list | length == 0
 
 - name: Add advanced ufw before rules
   blockinfile: dest=/etc/ufw/before.rules insertbefore="COMMIT" state=present block="{{ advanced_ufw_before_rules }}"
