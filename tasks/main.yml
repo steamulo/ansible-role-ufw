@@ -47,7 +47,7 @@
     - debug: var=ufw_parsed.rules
     - name: Get current UFW rules for outgoing traffic on authorized out ports
       set_fact:
-        current_ufw_outgoing_ports: "{{ ufw_parsed.rules | selectattr('direction', 'equalto', 'out') | selectattr('action', 'equalto', 'ALLOW') | list }}"
+        current_ufw_outgoing_ports: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'out') | selectattr('action', 'equalto', 'ALLOW') | list }}"
 
     - debug: var=current_ufw_outgoing_ports
     
