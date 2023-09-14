@@ -46,7 +46,7 @@
 
     - name: Remove whitelisted IPs if not in playbook values
       ufw:
-        state: absent
+        delete: true
         src: "{{ item }}"
       with_items: "{{ current_ufw_whitelisted_ips }}"
       when: not ansible_check_mode and item not in ufw_whitelisted_addresses | union(ufw_whitelisted_addresses_extra) and item is not none
