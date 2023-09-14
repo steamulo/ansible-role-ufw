@@ -90,10 +90,10 @@
       ufw:
         rule: delete
         from_ip: "{{ item.from_ip | default('any') }}"
-        to_port: "{{ item.to_port | default(None) }}"
-        proto: "{{ item.proto }}"
+        to_port: "{{ item.to_ports | default(None) }}"
+        proto: "{{ item.to_transport }}"
         to_ip: "{{ item.to_ip | default('any') }}"
-        from_port: "{{ item.from_port | default(None) }}"
+        from_port: "{{ item.from_ports | default(None) }}"
         direction: in
       with_items: "{{ current_ufw_incoming_ports }}"
       when: not ansible_check_mode and not current_ufw_incoming_ports | selectattr('from_ip', 'eq', item.from_ip) | selectattr('to_port', 'eq', item.to_ports|default(None)) | selectattr('proto', 'eq', item.to_transport) | selectattr('to_ip', 'eq', item.to_ip) | selectattr('from_port', 'eq', item.from_ports|default(None)) | list | length == 0
