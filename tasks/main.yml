@@ -80,6 +80,10 @@
       debug:
         var: ufw_whitelisted_in_ports_extra
 
+    - name: Debug current_ufw_incoming_ports
+      debug:
+        var: current_ufw_incoming_ports
+
 
     - name: Add incoming traffic rules if not present
       ufw:
