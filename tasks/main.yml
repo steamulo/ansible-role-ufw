@@ -97,7 +97,7 @@
       with_items: "{{ ufw_whitelisted_in_ports | union(ufw_whitelisted_in_ports_extra) }}"
       when: not ansible_check_mode and (current_ufw_incoming_ports | json_query(query)) == []
       vars:
-        query: "[?from_ip=='{{ item.from_ip }}' && (to_ports == null || contains(to_ports, '{{ item.to_port }}')) && to_transport=='{{ item.proto }}']"
+        query: "[?from_ip=='{{ item.from_ip }}' && (to_ports == null || contains(to_ports, '{{ item.to_port }}') || contains(to_ports, '{{ item.to_port | int }}')) && to_transport=='{{ item.proto }}']"
     
     - name: Remove incoming traffic rules not in playbook values
       ufw:
