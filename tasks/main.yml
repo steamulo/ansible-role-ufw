@@ -44,7 +44,7 @@
 
     - name: Remove whitelisted IPs if not in playbook values
       ufw:
-        state: present
+        state: enabled
         rule: allow
         delete: true
         src: "{{ item }}"
