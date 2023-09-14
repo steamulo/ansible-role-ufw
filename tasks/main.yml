@@ -8,9 +8,11 @@
   apt: name=ufw state=latest
   when: not ansible_check_mode
 
-- name: Reset ufw settings
-  ufw: state=reset
-  when: not ansible_check_mode
+- name: Check the current configuration
+  shell: ufw status numbered
+  register: current_ufw_status
+  changed_when: false
+  ignore_errors: yes
 
 - name: Enable/Disable logging
   ufw: logging={{ ufw_logging }}
