@@ -42,15 +42,6 @@
       with_items: "{{ ufw_whitelisted_addresses | union(ufw_whitelisted_addresses_extra) }}"
       when: not ansible_check_mode and item not in current_ufw_whitelisted_ips
 
-    - name: Remove whitelisted IPs if not in playbook values
-      ufw:
-        state: enabled
-        rule: allow
-        delete: true
-        src: "{{ item }}"
-      with_items: "{{ current_ufw_whitelisted_ips }}"
-      when: not ansible_check_mode and item not in ufw_whitelisted_addresses | union(ufw_whitelisted_addresses_extra) and item is not none
-
 - name: Allow outgoing traffic on authorized out ports
   block:
     - name: Get current UFW rules for outgoing traffic on authorized out ports
