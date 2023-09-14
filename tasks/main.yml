@@ -16,13 +16,15 @@
 
 - name: Parse current UFW rules
   set_fact:
-    ufwParsed: "{{ current_ufw_status.stdout | community.general.jc('ufw') }}"
+    ufw_parsed: "{{ current_ufw_status.stdout | community.general.jc('ufw') }}"
+
+- debug: var=ufw_parsed
 
 - name: Enable/Disable logging if different from playbook value
   block:
     - name: Get current UFW logging status
       set_fact:
-        current_ufw_logging: "{{ ufwParsed.logging | default('disabled') }}"
+        current_ufw_logging: "{{ ufw_parsed.logging | default('disabled') }}"
 
     - name: Set UFW logging to playbook value if different
       ufw:
