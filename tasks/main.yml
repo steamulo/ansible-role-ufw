@@ -42,7 +42,8 @@
       
     - name: Add whitelisted IPs if not present
       ufw:
-        rule: "allow src={{ item }}"
+        rule: allow
+        src: "{{ item }}"
       with_items: "{{ ufw_whitelisted_addresses | union(ufw_whitelisted_addresses_extra) }}"
       when: not ansible_check_mode and item not in current_ufw_whitelisted_ips
   
