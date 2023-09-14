@@ -16,11 +16,19 @@
 
 - name: Parse current UFW rules
   set_fact:
-    current_ufw_rules: "{{ current_ufw_status.stdout_lines | map('regex_replace', '.*\\[\\d+\\] (\\S+)\\s+(ALLOW|DENY) IN\\s+(.*)$', '\\1 \\2 \\3') | list }}"
+    ufwParsed: "{{ current_ufw_status.stdout | community.general.jc('ufw') }}"
 
-- name: Enable/Disable logging
-  ufw: logging={{ ufw_logging }}
-  when: not ansible_check_mode
+- name: Enable/Disable logging if different from playbook value
+  block:
+    - name: Get current UFW logging status
+      set_fact:
+        current_ufw_logging: "{{ ufwParsed.logging | default('disabled') }}"
+
+    - name: Set UFW logging to playbook value if different
+      ufw:
+        logging: "{{ ufw_logging }}"
+      when: not ansible_check_mode and current_ufw_logging != ufw_logging
+
 
 - name: Allow all traffic for whitelisted ips
   ufw: rule=allow src={{ item }}
