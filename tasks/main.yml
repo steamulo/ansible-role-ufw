@@ -58,6 +58,10 @@
         selectattr('to_transport', 'eq', item.proto) | 
         map(attribute='to_ports') | 
         flatten ))
+      
+    - name: debug
+      debug:
+        var: incoming_rules | map(attribute='to_port') | list
 
     - name: Delete incoming traffic rules if present in current configuration but not in incoming_rules
       debug:
