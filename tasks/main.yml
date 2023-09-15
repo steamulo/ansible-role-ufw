@@ -41,25 +41,6 @@
       set_fact:
         current_ufw_incoming_ports: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'IN') | selectattr('action', 'equalto', 'ALLOW') | list }}"
 
-    - name: Delete incoming traffic rules if present in current configuration but not in incoming_rules
-      ufw:
-        rule: delete
-        from_ip: "{{ item.from_ip | default('any') }}"
-        to_port: "{{ individual_port }}"
-        proto: "{{ item.proto }}"
-        to_ip: "{{ item.to_ip | default('any') }}"
-        from_port: "{{ item.from_port | default(None) }}"
-        direction: in
-      with_items: "{{ current_ufw_incoming_ports }}"
-      when: not ansible_check_mode and (
-        not item.to_ports | flatten in (
-        incoming_rules |
-        selectattr('from_ip', 'eq', item.from_ip) |
-        selectattr('proto', 'eq', item.to_transport) |
-        map(attribute='to_ports')))
-      loop_control:
-        loop_var: individual_port
-
     - name: Add incoming traffic rules if not present
       ufw:
         rule: allow
@@ -77,6 +58,21 @@
         selectattr('to_transport', 'eq', item.proto) | 
         map(attribute='to_ports') | 
         flatten ))
+
+    - name: Delete incoming traffic rules if present in current configuration but not in incoming_rules
+      ufw:
+        rule: delete
+        from_ip: "{{ item.0.from_ip | default('any') }}"
+        to_port: "{{ item.1 }}"
+        proto: "{{ item.0.proto }}"
+        direction: in
+      with_subelements:
+        - current_ufw_incoming_ports
+        - to_ports
+      when: not ansible_check_mode and (
+        item.0.from_ip in incoming_rules | map(attribute='from_ip') | list and
+        item.0.to_transport in incoming_rules | map(attribute='proto') | list and
+        item.1 not in incoming_rules | map(attribute='to_port') | list)
 
 - name: Allow all traffic for whitelisted ips
   block:
