@@ -45,7 +45,7 @@
       ufw:
         rule: allow
         src: "{{ item }}"
-      with_items: incoming_rules
+      with_items: "{{ incoming_rules }}"
       when: not ansible_check_mode and item not in current_ufw_whitelisted_ips
 
 - name: Allow outgoing traffic on authorized out ports
@@ -63,7 +63,7 @@
         from_ip: "{{ item.from_ip | default ('any') }}"
         from_port: "{{ item.from_port | default (None) }}"
         direction: out
-      with_items: incoming_rules
+      with_items: "{{ incoming_rules }}"
       when: not ansible_check_mode and item not in current_ufw_outgoing_ports
 
     - name: Remove outgoing traffic rules not in playbook values
