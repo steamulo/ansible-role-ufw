@@ -14,9 +14,15 @@
   changed_when: false
   ignore_errors: yes
 
-- name: Parse current UFW rules
-  set_fact:
-    ufw_parsed: "{{ current_ufw_status.stdout | community.general.jc('ufw') }}"
+- name: Set variables
+  block:
+    - name: Parse current UFW rules
+      set_fact:
+        ufw_parsed: "{{ current_ufw_status.stdout | community.general.jc('ufw') }}"
+
+    - name: Concatenate and remove duplicates
+      set_fact:
+        incoming_rules: "{{ ufw_whitelisted_in_ports + ufw_whitelisted_in_ports_extra | unique }}"
 
 - name: Enable/Disable logging if different from playbook value
   block:
@@ -39,7 +45,7 @@
       ufw:
         rule: allow
         src: "{{ item }}"
-      with_items: "{{ ufw_whitelisted_addresses | union(ufw_whitelisted_addresses_extra) }}"
+      with_items: incoming_rules
       when: not ansible_check_mode and item not in current_ufw_whitelisted_ips
 
 - name: Allow outgoing traffic on authorized out ports
@@ -57,40 +63,20 @@
         from_ip: "{{ item.from_ip | default ('any') }}"
         from_port: "{{ item.from_port | default (None) }}"
         direction: out
-      with_items: "{{ ufw_whitelisted_out_ports | union(ufw_whitelisted_out_ports_extra) }}"
+      with_items: incoming_rules
       when: not ansible_check_mode and item not in current_ufw_outgoing_ports
 
-    - name: Remove outgoing traffic rules  not in playbook values
+    - name: Remove outgoing traffic rules not in playbook values
       ufw:
         rule: "delete allow to_ip={{ item.to_ip | default ('any') }} to_port={{ item.to_port | default (None) }} proto={{ item.proto }} from_ip={{ item.from_ip | default ('any') }} from_port={{ item.from_port | default (None) }} direction=out"
       with_items: "{{ current_ufw_outgoing_ports }}"
-      when: not ansible_check_mode and item not in ufw_whitelisted_out_ports | union(ufw_whitelisted_out_ports_extra)
+      when: not ansible_check_mode and item not in incoming_rules
 
 - name: Allow incoming traffic on authorized in ports
   block:
     - name: Get current UFW rules for incoming traffic on authorized in ports
       set_fact:
         current_ufw_incoming_ports: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'IN') | selectattr('action', 'equalto', 'ALLOW') | list }}"
-
-    - name: Debug ufw_whitelisted_in_ports
-      debug:
-        var: ufw_whitelisted_in_ports
-
-    - name: Debug ufw_whitelisted_in_ports_extra
-      debug:
-        var: ufw_whitelisted_in_ports_extra
-
-    - name: Concatenate and remove duplicates
-      set_fact:
-        combined_list: "{{ ufw_whitelisted_in_ports + ufw_whitelisted_in_ports_extra | unique }}"
-
-    - name: Debug concatenate
-      debug:
-        var: combined_list
-
-    - name: Debug current_ufw_incoming_ports
-      debug:
-        var: current_ufw_incoming_ports
 
     - name: Add incoming traffic rules if not present
       ufw:
@@ -101,10 +87,10 @@
         to_ip: "{{ item.to_ip | default('any') }}"
         from_port: "{{ item.from_port | default(None) }}"
         direction: in
-      with_items: "{{ ufw_whitelisted_in_ports | union(ufw_whitelisted_in_ports_extra) }}"
+      with_items: incoming_rules
       when: not ansible_check_mode and (current_ufw_incoming_ports | json_query(query)) == []
       vars:
-        query: "[?from_ip=='{{ item.from_ip }}' && (to_ports == null || contains(to_ports, '{{ item.to_port }}') || contains(to_ports, '{{ item.to_port | int }}')) && to_transport=='{{ item.proto }}']"
+        query: "[?from_ip=='{{ item.from_ip }}' && (to_ports == null || contains(to_ports, '{{ item.to_port }}')) && to_transport=='{{ item.proto }}']"
     
     - name: Remove incoming traffic rules not in playbook values
       ufw:
@@ -116,7 +102,7 @@
         from_port: "{{ item.from_ports | default(None) }}"
         direction: in
       with_items: "{{ current_ufw_incoming_ports }}"
-      when: not ansible_check_mode and not ufw_whitelisted_in_ports | union(ufw_whitelisted_in_ports_extra) | selectattr('from_ip', 'eq', item.from_ip) | selectattr('to_port', 'eq', item.to_ports|default(None)) | selectattr('proto', 'eq', item.to_transport) | selectattr('to_ip', 'eq', item.to_ip) | selectattr('from_port', 'eq', item.from_ports|default(None)) | list | length == 0
+      when: not ansible_check_mode and not incoming_rules | selectattr('from_ip', 'eq', item.from_ip) | selectattr('to_port', 'eq', item.to_ports|default(None)) | selectattr('proto', 'eq', item.to_transport) | selectattr('to_ip', 'eq', item.to_ip) | selectattr('from_port', 'eq', item.from_ports|default(None)) | list | length == 0
 
 - name: Add advanced ufw before rules
   blockinfile: dest=/etc/ufw/before.rules insertbefore="COMMIT" state=present block="{{ advanced_ufw_before_rules }}"
