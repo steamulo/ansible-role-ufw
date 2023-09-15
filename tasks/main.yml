@@ -60,8 +60,10 @@
         flatten ))
       
     - name: debug
+      set_fact:
+        varz: 22
       debug:
-        var: "22" in incoming_rules | map(attribute='to_port') | list
+        var: varz in incoming_rules | map(attribute='to_port') | list
 
     - name: Delete incoming traffic rules if present in current configuration but not in incoming_rules
       debug:
