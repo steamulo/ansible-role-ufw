@@ -84,6 +84,10 @@
     - name: Get current UFW rules for outgoing traffic on authorized out ports
       set_fact:
         current_ufw_outgoing_ports: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'OUT') | selectattr('action', 'equalto', 'ALLOW') | list }}"
+
+    - name: "DEBUG outgoing_rules"
+      debug:
+        var: outgoing_rules
     
     - name: Add outgoing traffic rules if not present
       ufw:
@@ -127,7 +131,7 @@
         src: "{{ item }}"
       with_items: "{{ incoming_rules }}"
       when: not ansible_check_mode and item not in current_ufw_whitelisted_ips
-      
+
 - name: Add advanced ufw before rules
   blockinfile: dest=/etc/ufw/before.rules insertbefore="COMMIT" state=present block="{{ advanced_ufw_before_rules }}"
   when: not ansible_check_mode
