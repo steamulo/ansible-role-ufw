@@ -59,9 +59,19 @@
         map(attribute='to_ports') | 
         flatten ))
 
-    - name: DEBUG incoming traffic rules if not present
+    - name: DEBUG 1
       debug:
-        var: (item.from_ip not in incoming_rules | map(attribute='from_ip') | list) or (item.to_transport not in incoming_rules | map(attribute='proto') | list) or ((item.to_ports | default(None)) not in (incoming_rules | map(attribute='to_port') | flatten))
+        var: item.from_ip not in incoming_rules | map(attribute='from_ip') | list
+      with_items: "{{ current_ufw_incoming_ports }}"
+
+    - name: DEBUG 2
+      debug:
+        var: or item.to_transport not in incoming_rules | map(attribute='proto') | list
+      with_items: "{{ current_ufw_incoming_ports }}"
+
+    - name: DEBUG 3
+      debug:
+        var: (item.to_ports | default(None)) not in (incoming_rules | map(attribute='to_port') | flatten)
       with_items: "{{ current_ufw_incoming_ports }}"
 
     - name: Delete incoming traffic rules if present in current configuration but not in incoming_rules
