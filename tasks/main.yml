@@ -63,16 +63,15 @@
       ufw:
         rule: delete
         from_ip: "{{ item.0.from_ip | default('any') }}"
-        to_port: "{{ item.1 }}"
         proto: "{{ item.0.proto }}"
         direction: in
       with_subelements:
         - "{{current_ufw_incoming_ports}}"
-        - to_ports | default([])
+        - to_ports
       when: not ansible_check_mode and (
         item.0.from_ip in incoming_rules | map(attribute='from_ip') | list and
         item.0.to_transport in incoming_rules | map(attribute='proto') | list and
-        item.1 not in incoming_rules | map(attribute='to_port') | list)
+        
 
 - name: Allow all traffic for whitelisted ips
   block:
