@@ -116,6 +116,7 @@
           direction: out
       with_items: "{{ current_ufw_outgoing_ports }}"
       when: not ansible_check_mode and (
+        outgoing_rules == [] or
         (item.1 not in (outgoing_rules | selectattr('to_ip', 'eq', item.0.to_ip) | selectattr('proto', 'eq', item.0.to_transport) | map(attribute='to_port') | list)))
       loop: "{{ current_ufw_outgoing_ports | subelements('to_ports', skip_missing=True) }}"
 
