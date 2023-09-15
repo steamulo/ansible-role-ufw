@@ -59,9 +59,11 @@
         map(attribute='to_ports') | 
         flatten ))
       
-    - name: debug
+    - name: debug a
       set_fact:
         varz: 22
+
+    - name: debug b
       debug:
         var: varz in incoming_rules | map(attribute='to_port') | list
 
