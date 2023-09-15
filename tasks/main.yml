@@ -80,10 +80,15 @@
       debug:
         var: ufw_whitelisted_in_ports_extra
 
+    - name: Debug union
+      set_fact:
+        union_debug: "{{ ufw_whitelisted_out_ports | union(ufw_whitelisted_out_ports_extra) }}"
+      debug:
+        var: union_debug
+
     - name: Debug current_ufw_incoming_ports
       debug:
         var: current_ufw_incoming_ports
-
 
     - name: Add incoming traffic rules if not present
       ufw:
