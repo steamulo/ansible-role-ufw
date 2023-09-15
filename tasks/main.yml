@@ -43,7 +43,7 @@
 
     - name: DEBUG incoming traffic rules if not present
       debug:
-        var: current_ufw_incoming_ports | selectattr('from_ip', 'eq', item.from_ip) | selectattr('to_transport', 'eq', item.proto) | map(attribute='to_ports')
+        var: current_ufw_incoming_ports | selectattr('from_ip', 'eq', item.from_ip) | selectattr('to_transport', 'eq', item.proto) | map(attribute='to_ports') | flatten
       with_items: "{{ incoming_rules }}"
 
     - name: Add incoming traffic rules if not present
