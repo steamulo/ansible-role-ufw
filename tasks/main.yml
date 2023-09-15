@@ -80,9 +80,11 @@
       debug:
         var: ufw_whitelisted_in_ports_extra
 
-    - name: Debug union
+    - name: Set union
       set_fact:
         union_debug: "{{ ufw_whitelisted_out_ports | union(ufw_whitelisted_out_ports_extra) }}"
+
+    - name: Debug union
       debug:
         var: union_debug
 
