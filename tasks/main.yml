@@ -52,7 +52,7 @@
         direction: in
       with_items: "{{ incoming_rules }}"
       when: not ansible_check_mode and (
-        (current_ufw_incoming_ports | selectattr('from_ip', 'eq', item.from_ip) | selectattr('to_transport', 'eq', item.proto) | map(attribute='to_ports') | default([])) | contains(item.to_port) | not)
+        not item.to_port in (current_ufw_incoming_ports | selectattr('from_ip', 'eq', item.from_ip) | selectattr('to_transport', 'eq', item.proto) | map(attribute='to_ports') | default([])))
 
     - name: Delete incoming traffic rules if present in current configuration but not in incoming_rules
       ufw:
