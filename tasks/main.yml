@@ -46,6 +46,7 @@
         formatted_current_ufw_incoming_ports: "{{ current_ufw_incoming_ports | map('combine', {'from_ip': item.from_ip, 'to_port': [item.to_ports | default([])], 'proto': item.to_transport}) | list }}"
       when: not ansible_check_mode
       loop: "{{ current_ufw_incoming_ports }}"
+      no_log: true
 
     - name: Debug incoming_rules
       debug:
