@@ -59,6 +59,11 @@
         map(attribute='to_ports') | 
         flatten ))
 
+    - name: DEBUG incoming traffic rules if not present
+      debug:
+        var: item.from_ip not in incoming_rules | map(attribute='from_ip') | list or item.to_transport not in incoming_rules | map(attribute='proto') | list or (item.to_ports | default(None)) not in (incoming_rules | map(attribute='to_port') | flatten))
+      with_items: "{{ current_ufw_incoming_ports }}"
+
     - name: Delete incoming traffic rules if present in current configuration but not in incoming_rules
       ufw:
         rule: delete
