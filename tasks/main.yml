@@ -87,7 +87,7 @@
 
     - name: "DEBUG outgoing_rules"
       debug:
-        var: outgoing_rules
+        var: current_ufw_outgoing_ports
     
     - name: Add outgoing traffic rules if not present
       ufw:
