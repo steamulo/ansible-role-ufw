@@ -66,7 +66,7 @@
 
     - name: DEBUG 2
       debug:
-        var: or item.to_transport not in incoming_rules | map(attribute='proto') | list
+        var: item.to_transport not in incoming_rules | map(attribute='proto') | list
       with_items: "{{ current_ufw_incoming_ports }}"
 
     - name: DEBUG 3
