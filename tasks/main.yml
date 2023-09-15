@@ -80,13 +80,13 @@
       debug:
         var: ufw_whitelisted_in_ports_extra
 
-    - name: Set union
+    - name: Concatenate and remove duplicates
       set_fact:
-        union_debug: "{{ ufw_whitelisted_out_ports | union(ufw_whitelisted_out_ports_extra) }}"
+        combined_list: "{{ ufw_whitelisted_in_ports + ufw_whitelisted_in_ports_extra | unique }}"
 
-    - name: Debug union
+    - name: Debug concatenate
       debug:
-        var: union_debug
+        var: combined_list
 
     - name: Debug current_ufw_incoming_ports
       debug:
