@@ -88,8 +88,8 @@
     - name: Add outgoing traffic rules if not present
       ufw:
         rule: allow
-        to_ip: "{{ item.to_ip }}"
-        to_port: "{{ item.to_port }}"
+        to_ip: "{{ item.to_ip | default('any') }}"
+        to_port: "{{ item.to_port | default(None) }}"
         proto: "{{ item.proto }}"
         direction: out
       with_items: "{{ outgoing_rules }}"
@@ -124,27 +124,47 @@
       when: not ansible_check_mode
 
 - name: Add advanced ufw before rules
-  blockinfile: dest=/etc/ufw/before.rules insertbefore="COMMIT" state=present block="{{ advanced_ufw_before_rules }}"
+  blockinfile:
+    dest: /etc/ufw/before.rules
+    insertbefore: "COMMIT"
+    state: present
+    block: "{{ advanced_ufw_before_rules }}"
   when: not ansible_check_mode
 
 - name: Add advanced ufw after rules
-  blockinfile: dest=/etc/ufw/after.rules insertbefore="COMMIT" state=present block="{{ advanced_ufw_after_rules }}"
+  blockinfile:
+    dest: /etc/ufw/after.rules
+    insertbefore: "COMMIT"
+    state: present
+    block: "{{ advanced_ufw_after_rules }}"
   when: not ansible_check_mode
 
 - name: Drop all inputs ipv4
-  lineinfile: dest=/etc/ufw/after.rules insertbefore="COMMIT" state=present line="-A ufw-reject-input -j DROP"
-  when: "{{root_nbd}} and not ansible_check_mode"
+  lineinfile:
+    dest: /etc/ufw/after.rules
+    insertbefore: "COMMIT"
+    state: present
+    line: "-A ufw-reject-input -j DROP"
+  when: "root_nbd and not ansible_check_mode"
 
 - name: Drop all inputs ipv6
-  lineinfile: dest=/etc/ufw/after6.rules insertbefore="COMMIT" state=present line="-A ufw6-reject-input -j DROP"
-  when: "{{root_nbd}} and not ansible_check_mode"
+  lineinfile:
+    dest: /etc/ufw/after6.rules
+    insertbefore: "COMMIT"
+    state: present
+    line: "-A ufw6-reject-input -j DROP"
+  when: "root_nbd and not ansible_check_mode"
 
 - name: Allow all outgoing traffic
-  ufw: policy=allow direction=outgoing
+  ufw:
+    policy: allow
+    direction: outgoing
   when: not ansible_check_mode
 
 - name: Deny or Allow all incoming traffic
-  ufw: policy={{ root_nbd | ternary('allow','deny') }} direction=incoming
+  ufw:
+    policy: "{{ root_nbd | ternary('allow','deny') }}"
+    direction: incoming
   when: not ansible_check_mode
 
 # Ensure no iptable-persitent, as its handled by ufw
