@@ -110,14 +110,13 @@
         ufw:
           delete: true
           rule: allow
-          to_ip: "{{ item.to_ip }}"
+          to_ip: "{{ item.0.to_ip }}"
           to_port: "{{ item.1 }}"
-          proto: "{{ item.from_transport }}"
+          proto: "{{ item.0.from_transport }}"
           direction: out
-      with_items: "{{ current_ufw_outgoing_ports }}"
       when: not ansible_check_mode and (
         (outgoing_rules|length == 0) or
-        (item.1 not in (outgoing_rules | selectattr('to_ip', 'eq', item.to_ip) | selectattr('proto', 'eq', item.from_transport) | map(attribute='to_port') | list)))
+        (item.1 not in (outgoing_rules | selectattr('to_ip', 'eq', item.0.to_ip) | selectattr('proto', 'eq', item.0.from_transport) | map(attribute='to_port') | list)))
       loop: "{{ current_ufw_outgoing_ports | subelements('to_ports', skip_missing=True) }}"
 
 - name: Allow all traffic for whitelisted ips
