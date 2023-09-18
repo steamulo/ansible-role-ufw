@@ -71,13 +71,6 @@
       when: not ansible_check_mode and (
         item not in whitelisted_addresses)
 
-
-    - name: Add whitelisted if not in the configuration
-      ufw:
-        rule: allow
-        src: "{{ item }}"
-      with_items: "{{ whitelisted_addresses }}"
-
 - name: Allow incoming traffic on authorized in ports
   block:
     - name: Get current UFW rules for incoming traffic on authorized in ports
