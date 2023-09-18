@@ -49,19 +49,28 @@
       set_fact:
         current_ufw_whitelisted_ips: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'IN') | selectattr('action', 'equalto', 'ALLOW') | selectattr('to_port_ranges', 'defined') | list }}"
 
-    - name: Get IPs from whitelisted_addresses without subnet masks
+    - name: Create whitelisted IPs with masks
       set_fact:
-        cleaned_whitelist_ips: "{{ whitelisted_addresses | map('regex_replace', '/\\d+$', '') | list }}"
+        whitelist_mask: "{{ whitelist_mask|default([]) + [item.from_ip + '/' + item.from_ip_prefix | string] }}"
+      loop: "{{ current_ufw_whitelisted_ips }}"
+
+    - name: Add whitelisted if not in the configuration
+      ufw:
+        rule: allow
+        src: "{{ item }}"
+      with_items: "{{ whitelisted_addresses }}"
+      when: not ansible_check_mode and (
+        item not in whitelist_mask|default([]))
 
     - name: Delete whitelisted IPs with mask
       ufw:
         delete: true
         rule: allow
-        from_ip: "{{ item.from_ip + '/' + item.from_ip_prefix | string }}"
-      with_items: "{{ current_ufw_whitelisted_ips }}"
+        from_ip: "{{ item }}"
+      with_items: "{{ whitelist_mask|default([]) }}"
       when: not ansible_check_mode and (
-        item.from_ip_prefix != 32
-        or (cleaned_whitelist_ips | select('match', '^' + item.from_ip + '$') | list | length == 0))
+        item not in whitelisted_addresses)
+
 
     - name: Add whitelisted if not in the configuration
       ufw:
