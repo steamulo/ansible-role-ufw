@@ -111,7 +111,7 @@
         rule: allow
         to_ip: "{{ item.0.to_ip }}"
         to_port: "{{ item.1 }}"
-        proto: "{{ item.0.from_transport }}"
+        proto: "{{ item.0.to_transport }}"
         direction: out
       when: not ansible_check_mode and (
         (outgoing_rules|length == 0) or
