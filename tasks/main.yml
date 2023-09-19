@@ -90,7 +90,7 @@
       when: not ansible_check_mode and (
         not item.to_port in (
         current_ufw_incoming_ports |
-        selectattr('from_ip', 'eq', item.from_ip) |
+        selectattr('from_ip', 'eq', item.from_ip|default('any')) |
         selectattr('to_transport', 'eq', item.proto) |
         map(attribute='to_ports') |
         flatten ))
@@ -99,12 +99,13 @@
       ufw:
         delete: true
         rule: allow
-        from_ip: "{{ item.0.from_ip}}"
+        from_ip: "{{ item.0.from_ip if item.0.from_ip != '::' else omit }}"
         to_port: "{{ item.1 }}"
         proto: "{{ item.0.to_transport }}"
         direction: in
       when: not ansible_check_mode and (
-        (item.1 not in (incoming_rules | selectattr('from_ip', 'eq', item.0.from_ip) | selectattr('proto', 'eq', item.0.to_transport) | map(attribute='to_port') | list)))
+        (item.1 not in (incoming_rules | selectattr('from_ip', 'defined') | selectattr('from_ip', 'eq', item.0.from_ip) | selectattr('proto', 'eq', item.0.to_transport) | map(attribute='to_port') | list)) and
+        (item.1 not in (incoming_rules | selectattr('from_ip', 'undefined') | selectattr('proto', 'eq', item.0.to_transport) | map(attribute='to_port') | list)))
       loop: "{{ current_ufw_incoming_ports | subelements('to_ports', skip_missing=True) }}"
 
 - name: Allow outgoing traffic on authorized out ports
