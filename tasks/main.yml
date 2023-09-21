@@ -8,51 +8,183 @@
   apt: name=ufw state=latest
   when: not ansible_check_mode
 
-- name: Reset ufw settings
-  ufw: state=reset
-  when: not ansible_check_mode
+- name: Check the current configuration
+  shell: ufw status numbered
+  register: current_ufw_status
+  changed_when: false
+  ignore_errors: yes
 
-- name: Enable/Disable logging
-  ufw: logging={{ ufw_logging }}
-  when: not ansible_check_mode
+- name: Set variables
+  block:
+    - name: Parse current UFW rules
+      set_fact:
+        ufw_parsed: "{{ current_ufw_status.stdout | community.general.jc('ufw') }}"
+
+    - name: Concatenate and remove duplicates for incoming rules
+      set_fact:
+        incoming_rules: "{{ ufw_whitelisted_in_ports + ufw_whitelisted_in_ports_extra | unique }}"
+
+    - name: Concatenate and remove duplicates for outgoing rules
+      set_fact:
+        outgoing_rules: "{{ ufw_whitelisted_out_ports + ufw_whitelisted_out_ports_extra | unique }}"
+
+    - name: Concatenate and remove duplicates for whitelist address
+      set_fact:
+        whitelisted_addresses: "{{ ufw_whitelisted_addresses + ufw_whitelisted_addresses_extra | unique }}"
+
+- name: Enable/Disable logging if different from playbook value
+  block:
+    - name: Get current UFW logging status
+      set_fact:
+        current_ufw_logging: "{{ ufw_parsed.logging | default('disabled') }}"
+
+    - name: Set UFW logging to playbook value if different
+      ufw:
+        logging: "{{ ufw_logging }}"
+      when: not ansible_check_mode and current_ufw_logging != ufw_logging
 
 - name: Allow all traffic for whitelisted ips
-  ufw: rule=allow src={{ item }}
-  with_items: "{{ ufw_whitelisted_addresses | union(ufw_whitelisted_addresses_extra) }}"
-  when: not ansible_check_mode
+  block:
+    - name: Get current UFW rules for whitelisted IPs
+      set_fact:
+        current_ufw_whitelisted_ips: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'IN') | selectattr('action', 'equalto', 'ALLOW') | selectattr('to_port_ranges', 'defined') | list }}"
 
-- name: Allow outgoing traffic on authorized out ports
-  ufw: rule=allow to_ip={{ item.to_ip | default ("any") }} to_port={{ item.to_port | default(None) }} proto={{ item.proto }} from_ip={{ item.from_ip | default("any") }} from_port={{ item.from_port | default(None) }} direction=out
-  with_items: "{{ ufw_whitelisted_out_ports | union(ufw_whitelisted_out_ports_extra) }}"
-  when: not ansible_check_mode
+    - name: Create whitelisted IPs with masks
+      set_fact:
+        whitelist_mask: "{{ whitelist_mask|default([]) + [item.from_ip + '/' + item.from_ip_prefix | string] }}"
+      loop: "{{ current_ufw_whitelisted_ips }}"
+
+    - name: Add whitelisted if not in the configuration
+      ufw:
+        rule: allow
+        src: "{{ item }}"
+      with_items: "{{ whitelisted_addresses }}"
+      when: not ansible_check_mode and (
+        item not in whitelist_mask|default([]))
+
+    - name: Delete whitelisted IPs with mask
+      ufw:
+        delete: true
+        rule: allow
+        from_ip: "{{ item }}"
+      with_items: "{{ whitelist_mask|default([]) }}"
+      when: not ansible_check_mode and (
+        item not in whitelisted_addresses)
 
 - name: Allow incoming traffic on authorized in ports
-  ufw: rule=allow from_ip={{ item.from_ip | default ("any") }} to_port={{ item.to_port | default(None) }} proto={{ item.proto }} to_ip={{ item.to_ip | default ("any") }} from_port={{ item.from_port | default(None) }} direction=in
-  with_items: "{{ ufw_whitelisted_in_ports | union(ufw_whitelisted_in_ports_extra) }}"
-  when: not ansible_check_mode
+  block:
+    - name: Get current UFW rules for incoming traffic on authorized in ports
+      set_fact:
+        current_ufw_incoming_ports: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'IN') | selectattr('action', 'equalto', 'ALLOW') | list }}"
+
+    - name: Add incoming traffic rules if not present
+      ufw:
+        rule: allow
+        from_ip: "{{ item.from_ip | default('any') }}"
+        to_port: "{{ item.to_port | default(None) }}"
+        proto: "{{ item.proto }}"
+        to_ip: "{{ item.to_ip | default('any') }}"
+        from_port: "{{ item.from_port | default(None) }}"
+        direction: in
+      with_items: "{{ incoming_rules }}"
+      when: not ansible_check_mode and (
+        not item.to_port in (
+        current_ufw_incoming_ports |
+        selectattr('from_ip', 'eq', item.from_ip|default('any')) |
+        selectattr('to_transport', 'eq', item.proto) |
+        map(attribute='to_ports') |
+        flatten ))
+
+    - name: Delete incoming traffic rules if present in current configuration but not in incoming_rules
+      ufw:
+        delete: true
+        rule: allow
+        from_ip: "{{ item.0.from_ip if item.0.from_ip != '::' else omit }}"
+        to_port: "{{ item.1 }}"
+        proto: "{{ item.0.to_transport }}"
+        direction: in
+      when: not ansible_check_mode and (
+        (item.1 not in (incoming_rules | selectattr('from_ip', 'defined') | selectattr('from_ip', 'eq', item.0.from_ip) | selectattr('proto', 'eq', item.0.to_transport) | map(attribute='to_port') | list)) and
+        (item.1 not in (incoming_rules | selectattr('from_ip', 'undefined') | selectattr('proto', 'eq', item.0.to_transport) | map(attribute='to_port') | list)))
+      loop: "{{ current_ufw_incoming_ports | subelements('to_ports', skip_missing=True) }}"
+
+- name: Allow outgoing traffic on authorized out ports
+  block:
+    - name: Get current UFW rules for outgoing traffic on authorized out ports
+      set_fact:
+        current_ufw_outgoing_ports: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'OUT') | selectattr('action', 'equalto', 'ALLOW') | list }}"
+
+    - name: Add outgoing traffic rules if not present
+      ufw:
+        rule: allow
+        to_ip: "{{ item.to_ip | default('any') }}"
+        to_port: "{{ item.to_port | default(None) }}"
+        proto: "{{ item.proto }}"
+        direction: out
+      with_items: "{{ outgoing_rules }}"
+      when: not ansible_check_mode and (
+        not item.to_port in (
+        current_ufw_outgoing_ports |
+        selectattr('to_ip', 'eq', item.to_ip) |
+        selectattr('proto', 'eq', item.proto) |
+        map(attribute='to_ports') |
+        flatten ))
+
+    - name: Remove outgoing traffic rules not in playbook values
+      ufw:
+        delete: true
+        rule: allow
+        to_ip: "{{ item.0.to_ip }}"
+        to_port: "{{ item.1 }}"
+        proto: "{{ item.0.to_transport }}"
+        direction: out
+      when: not ansible_check_mode and (
+        (outgoing_rules|length == 0) or
+        (item.1 not in (outgoing_rules | selectattr('to_ip', 'eq', item.0.to_ip) | selectattr('proto', 'eq', item.0.from_transport) | map(attribute='to_port') | list)))
+      loop: "{{ current_ufw_outgoing_ports | subelements('to_ports', skip_missing=True) }}"
 
 - name: Add advanced ufw before rules
-  blockinfile: dest=/etc/ufw/before.rules insertbefore="COMMIT" state=present block="{{ advanced_ufw_before_rules }}"
+  blockinfile:
+    dest: /etc/ufw/before.rules
+    insertbefore: "COMMIT"
+    state: present
+    block: "{{ advanced_ufw_before_rules }}"
   when: not ansible_check_mode
 
 - name: Add advanced ufw after rules
-  blockinfile: dest=/etc/ufw/after.rules insertbefore="COMMIT" state=present block="{{ advanced_ufw_after_rules }}"
+  blockinfile:
+    dest: /etc/ufw/after.rules
+    insertbefore: "COMMIT"
+    state: present
+    block: "{{ advanced_ufw_after_rules }}"
   when: not ansible_check_mode
 
 - name: Drop all inputs ipv4
-  lineinfile: dest=/etc/ufw/after.rules insertbefore="COMMIT" state=present line="-A ufw-reject-input -j DROP"
-  when: "{{root_nbd}} and not ansible_check_mode"
+  lineinfile:
+    dest: /etc/ufw/after.rules
+    insertbefore: "COMMIT"
+    state: present
+    line: "-A ufw-reject-input -j DROP"
+  when: "root_nbd and not ansible_check_mode"
 
 - name: Drop all inputs ipv6
-  lineinfile: dest=/etc/ufw/after6.rules insertbefore="COMMIT" state=present line="-A ufw6-reject-input -j DROP"
-  when: "{{root_nbd}} and not ansible_check_mode"
+  lineinfile:
+    dest: /etc/ufw/after6.rules
+    insertbefore: "COMMIT"
+    state: present
+    line: "-A ufw6-reject-input -j DROP"
+  when: "root_nbd and not ansible_check_mode"
 
 - name: Allow all outgoing traffic
-  ufw: policy=allow direction=outgoing
+  ufw:
+    policy: allow
+    direction: outgoing
   when: not ansible_check_mode
 
 - name: Deny or Allow all incoming traffic
-  ufw: policy={{ root_nbd | ternary('allow','deny') }} direction=incoming
+  ufw:
+    policy: "{{ root_nbd | ternary('allow','deny') }}"
+    direction: incoming
   when: not ansible_check_mode
 
 # Ensure no iptable-persitent, as its handled by ufw
