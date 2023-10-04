@@ -1,46 +1,52 @@
 ANSIBLE-ROLE-UFW
 =========
 
-Installation and basic configuration of a UFW on the target machine.
-The role checks the current configuration of the UFW if one exists and apply the modifications provided by the playbook.
+Installation and basic configuration of ufw on the target machine.
+
+The role checks the current configuration of ufw if and applies the modifications provided by the playbook.
 
 Role Variables
 --------------
 
-- **ufw_whitelisted_addresses_extra**: list of ip addresses whitelisted for all ports with the possibility to specify a mask. 
-Please specify the first IP address of the range if you specify a mask different from 32
-```    
-    ufw_whitelisted_addresses_extra:
-           - 1.1.1.1
-           - 1.0.0.0/8
+- **ufw_whitelisted_addresses** and **ufw_whitelisted_addresses_extra**: list of IP addresses or ranges whitelisted for all ports.
+
+```yaml
+ufw_whitelisted_addresses_extra:
+   - 1.1.1.1
+   - 1.0.0.0/8
 ```
 
 
-- **ufw_whitelisted_out_ports_extra**: list of whitelisted outgoing ports. If you want to open a port to any IP address (for example 80 or 443 ) you can 
-omit the attribute *to_ip*
+- **ufw_whitelisted_out_ports** and **ufw_whitelisted_out_ports_extra**: list of whitelisted outgoing ports.
+If you want to open a port to any IP address (oftenly 80 and 443 for public web services) you can omit the
+attribute *to_ip*.
     
-```    
-    ufw_whitelisted_out_ports_extra:
-           - { to_port: 22, proto: 'tcp', to_ip: '192.168.1.1' }
-           - { to_port: 80, proto: 'tcp' }
+```yaml
+ufw_whitelisted_out_ports_extra:
+   - { to_port: 22, proto: 'tcp', to_ip: '192.168.1.1' }
+   - { to_port: 80, proto: 'tcp' }
+   - { to_port: 443, proto: 'tcp' }
 ```
 
-- **ufw_whitelisted_in_ports_extra**: list of whitelisted incoming ports
+- **ufw_whitelisted_in_ports** **ufw_whitelisted_in_ports_extra**: list of whitelisted incoming ports. See the documentation of
+the _ufw_whitelisted_out_ports_ variable for details.
 
-```    
-    ufw_whitelisted_in_ports_extra:
-           - { to_port: 22, proto: 'tcp', from_ip: '192.168.1.1' }
+```yaml
+ufw_whitelisted_in_ports_extra:
+    - { to_port: 22, proto: 'tcp', from_ip: '192.168.1.1' }
+    - { to_port: 80, proto: 'tcp' }
+    - { to_port: 443, proto: 'tcp' }
 ```
 
-- **ufw_persistent**: Make rules persistent after reboot (/!\ be careful)
-
-- **ufw_logging**: logging mode on rejection. Available mode:
+- **ufw_logging**: logging mode on rejection. Available modes:
     - on
     - off
     - low
     - medium
     - high
     - full
+ 
+` **advanced_ufw_before_rules**
 
 Dependencies
 ------------
@@ -48,14 +54,18 @@ Dependencies
 Example Playbook
 ----------------
 
-    - hosts: servers
-      roles:
-        - { role: steamroles-interne/ufw-firewall, tags: [ firewall ] }
+```yaml
+- hosts: servers
+  roles:
+    - { role: steamulo.ufw, tags: [ firewall ] }
+  vars:
+    ufw_whitelist_in_ports_extra:
+      - { to_port: 22, proto: 'tcp', from_ip: '192.168.1.1' }
+```
 
+Ad-hoc command to see rules: 
 
-Ad-hoc command to see rules : 
-
-ansible all -a "/usr/sbin/ufw status verbose" -i hosts/all -u steamulo --sudo
+`ansible all -a "sudo /usr/sbin/ufw status verbose" -i hosts/all -u steamulo`
 
 License
 -------
