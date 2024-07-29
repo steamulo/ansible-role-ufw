@@ -1,0 +1,45 @@
+---
+
+- name: Ensure firewalld is installed
+  yum:
+    name: firewalld
+    state: present
+  become: true
+
+- name: Ensure firewalld is enabled and started
+  service:
+    name: firewalld
+    state: started
+    enabled: yes
+  become: true
+
+- name: Set default policy to deny incoming traffic
+  command: firewall-cmd --set-default-zone=drop
+  become: true
+
+- name: Add whitelisted incoming ports to firewalld
+  block:
+    - name: Add incoming traffic rules if not present
+      firewalld:
+        immediate: true
+        permanent: true
+        rich_rule: 'rule family="{{ "ipv6" if ":" in item.from_ip else "ipv4" }}" source address="{{ item.from_ip }}" port port="{{ item.to_port }}" protocol="{{ item.proto }}" accept'
+        zone: public
+        state: enabled
+      loop: "{{ ufw_whitelisted_in_ports }}"
+      when: not ansible_check_mode
+
+- name: Add blacklist rules to firewalld
+  firewalld:
+    immediate: true
+    permanent: true
+    rich_rule: 'rule family="{{ "ipv6" if ":" in item else "ipv4" }}" source address="{{ item }}" drop'
+    zone: public
+    state: enabled
+  loop: "{{ ips_blacklist }}"
+  when: not ansible_check_mode
+
+- name: Reload firewalld to apply changes
+  command: firewall-cmd --reload
+  become: true
+  when: not ansible_check_mode
