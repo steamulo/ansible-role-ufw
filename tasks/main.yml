@@ -4,6 +4,53 @@
   apt: update_cache=yes cache_valid_time=3600
   when: not ansible_check_mode
 
+- name: Install dependencies for GeoIP blocking
+  apt:
+    name:
+      - xtables-addons-common
+      - xtables-addons-dkms
+      - geoipupdate
+      - libtext-csv-xs-perl
+    state: latest
+  when: ufw_enable_geoip_blocking | default(false) and not ansible_check_mode
+
+- name: Create xt_geoip directory
+  ansible.builtin.file:
+    path: /usr/share/xt_geoip
+    state: directory
+    mode: '0755'
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Configure MaxMind GeoIP Update
+  ansible.builtin.template:
+    src: geoipupdate.conf.j2
+    dest: /etc/GeoIP.conf
+    owner: root
+    group: root
+    mode: '0600'
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Perform initial GeoIP database update
+  ansible.builtin.command: geoipupdate
+  args:
+    chdir: /usr/share/xt_geoip
+  register: geoip_update_result
+  changed_when: "'Database updated' in geoip_update_result.stdout or 'No updates are available' not in geoip_update_result.stdout"
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Build xt_geoip database for iptables
+  ansible.builtin.command: /usr/lib/xtables-addons/xt_geoip_build -D /usr/share/xt_geoip
+  when: ufw_enable_geoip_blocking | default(false) and geoip_update_result is changed
+  notify: reload ufw
+
+- name: Ensure SYN cookies are enabled (recommended for SYN flood protection)
+  sysctl:
+    name: net.ipv4.tcp_syncookies
+    value: '1'
+    state: present
+    reload: yes
+  when: not ansible_check_mode
+
 - name: Install ufw packages
   apt: name=ufw state=latest
   when: not ansible_check_mode
