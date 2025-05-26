@@ -35,7 +35,7 @@
   args:
     chdir: /usr/share/xt_geoip
   register: geoip_update_result
-  changed_when: "'Database updated' in geoip_update_result.stdout or 'No updates are available' not in geoip_update_result.stdout"
+  changed_when: "'Database updated' in geoip_update_result.stdout"
   when: ufw_enable_geoip_blocking | default(false)
 
 - name: Build xt_geoip database for iptables
