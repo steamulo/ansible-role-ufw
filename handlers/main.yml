@@ -1,8 +1,8 @@
 ---
 
-- name: reload ufw
+- name: restart ufw
   community.general.ufw:
     state: enabled
     reload: yes
-  listen: reload ufw
+  listen: restart ufw
   when: not ansible_check_mode and ufw_state | default('enabled') == 'enabled'

@@ -30,19 +30,52 @@
     mode: '0600'
   when: ufw_enable_geoip_blocking | default(false)
 
-- name: Perform initial GeoIP database update
-  ansible.builtin.command: geoipupdate
+- name: Lire la LicenseKey depuis /etc/GeoIP.conf
+  shell: "grep ^LicenseKey /etc/GeoIP.conf | cut -d' ' -f2"
+  register: geoip_license_key
+  changed_when: false
+
+- name: Télécharger GeoLite2-Country.zip
+  get_url:
+    url: "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&license_key={{ geoip_license_key.stdout }}&suffix=zip"
+    dest: /usr/share/xt_geoip/GeoLite2-Country.zip
+    mode: '0644'
+
+- name: Décompresser GeoLite2-Country.zip sans créer de sous-répertoire
+  shell: "unzip -o -j /usr/share/xt_geoip/GeoLite2-Country.zip -d /usr/share/xt_geoip/"
   args:
-    chdir: /usr/share/xt_geoip
-  register: geoip_update_result
-  changed_when: "'Database updated' in geoip_update_result.stdout"
-  when: ufw_enable_geoip_blocking | default(false)
+    creates: /usr/share/xt_geoip/GeoLite2-Country-Blocks-IPv4.csv
+
+- name: Appliquer les permissions 755 sur les fichiers extraits de GeoLite2
+  file:
+    path: "{{ item }}"
+    recurse: yes
+    mode: '0755'
+  with_fileglob:
+    - "/usr/share/xt_geoip/GeoLite2-*/**"
+
+- name: Télécharger dbip-country-lite.csv.gz
+  get_url:
+    url: "https://download.db-ip.com/free/dbip-country-lite-{{ lookup('pipe', 'date +%Y-%m') }}.csv.gz"
+    dest: /usr/share/xt_geoip/dbip-country-lite.csv.gz
+    mode: '0644'
+
+- name: Décompresser dbip-country-lite.csv.gz
+  command: gunzip -f /usr/share/xt_geoip/dbip-country-lite.csv.gz
+  args:
+    creates: /usr/share/xt_geoip/dbip-country-lite.csv
+
+- name: Appliquer les permissions 755 sur dbip-country-lite.csv
+  file:
+    path: /usr/share/xt_geoip/dbip-country-lite.csv
+    mode: '0755'
 
 - name: Build xt_geoip database for iptables
-  ansible.builtin.command: /usr/lib/xtables-addons/xt_geoip_build -D /usr/share/xt_geoip
-  when: ufw_enable_geoip_blocking | default(false) and geoip_update_result is changed
-  notify: reload ufw
-
+  ansible.builtin.shell: /usr/libexec/xtables-addons/xt_geoip_build -D /usr/share/xt_geoip */csv
+  args:
+    chdir: /usr/share/xt_geoip
+  when: ufw_enable_geoip_blocking | default(false)
+  notify: restart ufw
 
 - name: Install ufw packages
   apt: name=ufw state=latest
