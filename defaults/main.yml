@@ -24,3 +24,16 @@ advanced_ufw_after_rules: ""
 
 ufw_logging: "on"
 root_nbd: false
+
+# State of the firewall, can be 'enabled' or 'disabled'
+ufw_enable_geoip_blocking: false
+
+# Liste des codes pays ISO 3166-1 alpha-2 autorisés si ufw_enable_geoip_blocking est true
+# Si cette liste est vide, la politique GeoIP n'aura pas d'effet de "liste blanche" globale,
+# seuls les pays DENIED seront bloqués si ufw_denied_countries est défini.
+# Ex: ["FR", "BE", "CH", "CA", "US"]
+ufw_allowed_countries: []
+
+# Liste des codes pays ISO 3166-1 alpha-2 à bloquer explicitement si ufw_enable_geoip_blocking est true
+# Ex: ["RU", "CN", "KP"]
+ufw_denied_countries: []
