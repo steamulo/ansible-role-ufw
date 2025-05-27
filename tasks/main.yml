@@ -43,13 +43,6 @@
   when: ufw_enable_geoip_blocking | default(false) and geoip_update_result is changed
   notify: reload ufw
 
-- name: Ensure SYN cookies are enabled (recommended for SYN flood protection)
-  sysctl:
-    name: net.ipv4.tcp_syncookies
-    value: '1'
-    state: present
-    reload: yes
-  when: not ansible_check_mode
 
 - name: Install ufw packages
   apt: name=ufw state=latest
