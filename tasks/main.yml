@@ -83,6 +83,19 @@
   when: ufw_enable_geoip_blocking | default(false)
   notify: restart ufw
 
+- name: Add SYN FLOOD log line to rsyslog UFW config
+  ansible.builtin.lineinfile:
+    path: /etc/rsyslog.d/20-ufw.conf
+    line: ':msg, contains, "[SYN FLOOD]" /var/log/ufw.log'
+    state: present
+    insertafter: '^:msg, contains, "\[UFW "'
+    backup: yes
+
+- name: Restart rsyslog to apply config changes
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted
+
 - name: Install ufw packages
   apt: name=ufw state=latest
   when: not ansible_check_mode
