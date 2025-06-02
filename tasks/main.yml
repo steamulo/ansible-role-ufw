@@ -230,6 +230,15 @@
     block: "{{ advanced_ufw_before_rules }}"
   when: not ansible_check_mode
 
+- name: Insert advanced UFW mangle rules into before.rules
+  blockinfile:
+    path: /etc/ufw/before.rules
+    insertbefore: '^COMMIT'
+    marker: "# {mark} UFW MANGLE BLOCK"
+    block: "{{ ufw_mangle_rules }}"
+    create: yes
+  when: not ansible_check_mode
+
 - name: Add advanced ufw before6 rules
   blockinfile:
     dest: /etc/ufw/before6.rules
