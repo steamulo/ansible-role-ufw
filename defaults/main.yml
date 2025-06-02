@@ -22,6 +22,11 @@ advanced_ufw_before_rules: ""
 # raw iptables rules evaluated after any rules added via the ufw command
 advanced_ufw_after_rules: ""
 
+# raw iptables rules evaluated before any rules added via the ufw command
+advanced_ufw_before6_rules: ""
+# raw iptables rules evaluated after any rules added via the ufw command
+advanced_ufw_after6_rules: ""
+
 ufw_logging: "on"
 root_nbd: false
 

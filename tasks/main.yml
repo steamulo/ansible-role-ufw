@@ -230,12 +230,28 @@
     block: "{{ advanced_ufw_before_rules }}"
   when: not ansible_check_mode
 
+- name: Add advanced ufw before6 rules
+  blockinfile:
+    dest: /etc/ufw/before6.rules
+    insertbefore: "COMMIT"
+    state: present
+    block: "{{ advanced_ufw_before6_rules }}"
+  when: not ansible_check_mode
+
 - name: Add advanced ufw after rules
   blockinfile:
     dest: /etc/ufw/after.rules
     insertbefore: "COMMIT"
     state: present
     block: "{{ advanced_ufw_after_rules }}"
+  when: not ansible_check_mode
+
+- name: Add advanced ufw after6 rules
+  blockinfile:
+    dest: /etc/ufw/after6.rules
+    insertbefore: "COMMIT"
+    state: present
+    block: "{{ advanced_ufw_after6_rules }}"
   when: not ansible_check_mode
 
 - name: Drop all inputs ipv4
