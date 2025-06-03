@@ -34,6 +34,7 @@
   shell: "grep ^LicenseKey /etc/GeoIP.conf | cut -d' ' -f2"
   register: geoip_license_key
   changed_when: false
+  when: ufw_enable_geoip_blocking | default(false)
 
 - name: Télécharger GeoLite2-Country.zip
   get_url:
