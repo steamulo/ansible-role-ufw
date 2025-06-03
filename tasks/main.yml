@@ -88,7 +88,7 @@
     path: /etc/rsyslog.d/20-ufw.conf
     line: ':msg, contains, "[SYN FLOOD]" /var/log/ufw.log'
     state: present
-    insertafter: '^:msg, contains, "\[UFW "'
+    insertafter: '^:msg,contains,"\[UFW "'
     backup: yes
 
 - name: Restart rsyslog to apply config changes
