@@ -11,7 +11,7 @@
       - xtables-addons-dkms
       - geoipupdate
       - libtext-csv-xs-perl
-    state: latest
+    state: present
   when: ufw_enable_geoip_blocking | default(false) and not ansible_check_mode
 
 - name: Create xt_geoip directory
