@@ -247,7 +247,7 @@
 - name: Insert advanced UFW mangle rules into before.rules
   blockinfile:
     path: /etc/ufw/before.rules
-    insertbefore: '^\\*filter'
+    insertbefore: '^# Don'\''t delete these required lines, otherwise there will be errors'
     marker: "# {mark} UFW MANGLE BLOCK"
     block: "{{ ufw_mangle_rules }}"
     create: yes
