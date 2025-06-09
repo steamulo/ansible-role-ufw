@@ -1,6 +1,13 @@
 ---
 # defaults file for ufw-firewall
 
+# Dependencies for GeoIP blocking on Ubuntu
+ufw_geoip_dependencies:
+  - xtables-addons-common
+  - xtables-addons-dkms
+  - geoipupdate
+  - libtext-csv-xs-perl
+
 ufw_whitelisted_addresses:
 # deal with 2 levels of overriding
 ufw_whitelisted_addresses_extra: []
