@@ -1,69 +1,90 @@
 ---
 
 - name: Update apt-cache if necessary
-  apt: update_cache=yes cache_valid_time=3600
+  ansible.builtin.apt: update_cache=yes cache_valid_time=3600
   when: not ansible_check_mode
 
-- name: Install ufw packages
-  apt: name=ufw state=latest
+- name: Include GeoIP blocking tasks
+  ansible.builtin.include_tasks: geoip.yml
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Add SYN FLOOD log entry to rsyslog UFW configuration
+  ansible.builtin.lineinfile:
+    path: /etc/rsyslog.d/20-ufw.conf
+    line: ':msg, contains, "[SYN FLOOD]" /var/log/ufw.log'
+    state: present
+    insertafter: '^:msg,contains,"\[UFW "'
+    backup: yes
+  register: rsyslog_config_changed
+
+- name: Restart rsyslog service to apply configuration changes
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted
+  when: rsyslog_config_changed.changed
+
+- name: Install UFW package
+  ansible.builtin.apt:
+    name: ufw
+    state: present
   when: not ansible_check_mode
 
-- name: Check the current configuration
-  shell: ufw status numbered
+- name: Retrieve current UFW configuration
+  ansible.builtin.shell: ufw status numbered
   register: current_ufw_status
   changed_when: false
   ignore_errors: yes
 
-- name: Set variables
+- name: Set UFW configuration variables
   block:
-    - name: Parse current UFW rules
-      set_fact:
+    - name: Parse current UFW rules using jc filter
+      ansible.builtin.set_fact:
         ufw_parsed: "{{ current_ufw_status.stdout | community.general.jc('ufw') }}"
 
-    - name: Concatenate and remove duplicates for incoming rules
-      set_fact:
+    - name: Prepare merged incoming rules list
+      ansible.builtin.set_fact:
         incoming_rules: "{{ ufw_whitelisted_in_ports + ufw_whitelisted_in_ports_extra | unique }}"
 
-    - name: Concatenate and remove duplicates for outgoing rules
-      set_fact:
+    - name: Prepare merged outgoing rules list
+      ansible.builtin.set_fact:
         outgoing_rules: "{{ ufw_whitelisted_out_ports + ufw_whitelisted_out_ports_extra | unique }}"
 
-    - name: Concatenate and remove duplicates for whitelist address
-      set_fact:
+    - name: Prepare merged whitelisted addresses list
+      ansible.builtin.set_fact:
         whitelisted_addresses: "{{ ufw_whitelisted_addresses + ufw_whitelisted_addresses_extra | unique }}"
 
-- name: Enable/Disable logging if different from playbook value
+- name: Configure UFW logging
   block:
     - name: Get current UFW logging status
-      set_fact:
+      ansible.builtin.set_fact:
         current_ufw_logging: "{{ ufw_parsed.logging | default('disabled') }}"
 
-    - name: Set UFW logging to playbook value if different
-      ufw:
+    - name: Update UFW logging if different from configuration
+      community.general.ufw:
         logging: "{{ ufw_logging }}"
       when: not ansible_check_mode and current_ufw_logging != ufw_logging
 
-- name: Allow all traffic for whitelisted ips
+- name: Configure whitelisted IP addresses
   block:
-    - name: Get current UFW rules for whitelisted IPs
-      set_fact:
+    - name: Extract current whitelisted IPs from UFW rules
+      ansible.builtin.set_fact:
         current_ufw_whitelisted_ips: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'IN') | selectattr('action', 'equalto', 'ALLOW') | selectattr('to_port_ranges', 'defined') | list }}"
 
-    - name: Create whitelisted IPs with masks
-      set_fact:
+    - name: Format whitelisted IPs with CIDR masks
+      ansible.builtin.set_fact:
         whitelist_mask: "{{ whitelist_mask|default([]) + [item.from_ip + '/' + item.from_ip_prefix | string] }}"
       loop: "{{ current_ufw_whitelisted_ips }}"
 
-    - name: Add whitelisted if not in the configuration
-      ufw:
+    - name: Add missing whitelisted IP addresses to UFW rules
+      community.general.ufw:
         rule: allow
         src: "{{ item }}"
       with_items: "{{ whitelisted_addresses }}"
       when: not ansible_check_mode and (
         item not in whitelist_mask|default([]))
 
-    - name: Delete whitelisted IPs with mask
-      ufw:
+    - name: Remove obsolete whitelisted IP addresses from UFW rules
+      community.general.ufw:
         delete: true
         rule: allow
         from_ip: "{{ item }}"
@@ -71,14 +92,14 @@
       when: not ansible_check_mode and (
         item not in whitelisted_addresses)
 
-- name: Allow incoming traffic on authorized in ports
+- name: Configure incoming traffic rules
   block:
-    - name: Get current UFW rules for incoming traffic on authorized in ports
-      set_fact:
+    - name: Extract current incoming rules from UFW configuration
+      ansible.builtin.set_fact:
         current_ufw_incoming_ports: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'IN') | selectattr('action', 'equalto', 'ALLOW') | list }}"
 
-    - name: Add incoming traffic rules if not present
-      ufw:
+    - name: Add missing incoming traffic rules to UFW
+      community.general.ufw:
         rule: allow
         from_ip: "{{ item.from_ip | default('any') }}"
         to_port: "{{ item.to_port | default(None) }}"
@@ -95,8 +116,8 @@
         map(attribute='to_ports') |
         flatten ))
 
-    - name: Delete incoming traffic rules if present in current configuration but not in incoming_rules
-      ufw:
+    - name: Remove obsolete incoming traffic rules from UFW
+      community.general.ufw:
         delete: true
         rule: allow
         from_ip: "{{ item.0.from_ip if item.0.from_ip != '::' else omit }}"
@@ -108,14 +129,14 @@
         (item.1 not in (incoming_rules | selectattr('from_ip', 'undefined') | selectattr('proto', 'eq', item.0.to_transport) | map(attribute='to_port') | list)))
       loop: "{{ current_ufw_incoming_ports | subelements('to_ports', skip_missing=True) }}"
 
-- name: Allow outgoing traffic on authorized out ports
+- name: Configure outgoing traffic rules
   block:
-    - name: Get current UFW rules for outgoing traffic on authorized out ports
-      set_fact:
+    - name: Extract current outgoing rules from UFW configuration
+      ansible.builtin.set_fact:
         current_ufw_outgoing_ports: "{{ ufw_parsed.rules | selectattr('action_direction', 'equalto', 'OUT') | selectattr('action', 'equalto', 'ALLOW') | list }}"
 
-    - name: Add outgoing traffic rules if not present
-      ufw:
+    - name: Add missing outgoing traffic rules to UFW
+      community.general.ufw:
         rule: allow
         to_ip: "{{ item.to_ip | default('any') }}"
         to_port: "{{ item.to_port | default(None) }}"
@@ -130,8 +151,8 @@
         map(attribute='to_ports') |
         flatten ))
 
-    - name: Remove outgoing traffic rules not in playbook values
-      ufw:
+    - name: Remove obsolete outgoing traffic rules from UFW
+      community.general.ufw:
         delete: true
         rule: allow
         to_ip: "{{ item.0.to_ip }}"
@@ -144,23 +165,48 @@
       loop: "{{ current_ufw_outgoing_ports | subelements('to_ports', skip_missing=True) }}"
 
 - name: Add advanced ufw before rules
-  blockinfile:
+  ansible.builtin.blockinfile:
     dest: /etc/ufw/before.rules
     insertbefore: "COMMIT"
     state: present
     block: "{{ advanced_ufw_before_rules }}"
   when: not ansible_check_mode
 
+- name: Insert advanced UFW mangle rules into before.rules
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/before.rules
+    insertbefore: "^# Don't delete these required lines, otherwise there will be errors"
+    marker: "# {mark} UFW MANGLE BLOCK"
+    block: "{{ ufw_mangle_rules }}"
+    create: yes
+  when: not ansible_check_mode
+
+- name: Add advanced ufw before6 rules
+  ansible.builtin.blockinfile:
+    dest: /etc/ufw/before6.rules
+    insertbefore: "COMMIT"
+    state: present
+    block: "{{ advanced_ufw_before6_rules }}"
+  when: not ansible_check_mode
+
 - name: Add advanced ufw after rules
-  blockinfile:
+  ansible.builtin.blockinfile:
     dest: /etc/ufw/after.rules
     insertbefore: "COMMIT"
     state: present
     block: "{{ advanced_ufw_after_rules }}"
   when: not ansible_check_mode
 
+- name: Add advanced ufw after6 rules
+  ansible.builtin.blockinfile:
+    dest: /etc/ufw/after6.rules
+    insertbefore: "COMMIT"
+    state: present
+    block: "{{ advanced_ufw_after6_rules }}"
+  when: not ansible_check_mode
+
 - name: Drop all inputs ipv4
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/ufw/after.rules
     insertbefore: "COMMIT"
     state: present
@@ -168,7 +214,7 @@
   when: "root_nbd and not ansible_check_mode"
 
 - name: Drop all inputs ipv6
-  lineinfile:
+  ansible.builtin.lineinfile:
     dest: /etc/ufw/after6.rules
     insertbefore: "COMMIT"
     state: present
@@ -176,21 +222,21 @@
   when: "root_nbd and not ansible_check_mode"
 
 - name: Allow all outgoing traffic
-  ufw:
+  community.general.ufw:
     policy: allow
     direction: outgoing
   when: not ansible_check_mode
 
 - name: Deny or Allow all incoming traffic
-  ufw:
+  community.general.ufw:
     policy: "{{ root_nbd | ternary('allow','deny') }}"
     direction: incoming
   when: not ansible_check_mode
 
 # Ensure no iptable-persitent, as its handled by ufw
 - name: Install iptables-persistent if necessary
-  apt: name=iptables-persistent state=absent
+  ansible.builtin.apt: name=iptables-persistent state=absent
 
 - name: Enable firewall
-  ufw: state=enabled
+  community.general.ufw: state=enabled
   when: not ansible_check_mode

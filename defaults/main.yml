@@ -1,6 +1,13 @@
 ---
 # defaults file for ufw-firewall
 
+# Dependencies for GeoIP blocking on Ubuntu
+ufw_geoip_dependencies:
+  - xtables-addons-common
+  - xtables-addons-dkms
+  - geoipupdate
+  - libtext-csv-xs-perl
+
 ufw_whitelisted_addresses:
 # deal with 2 levels of overriding
 ufw_whitelisted_addresses_extra: []
@@ -21,6 +28,26 @@ ufw_whitelisted_in_ports_extra: []
 advanced_ufw_before_rules: ""
 # raw iptables rules evaluated after any rules added via the ufw command
 advanced_ufw_after_rules: ""
+# raw iptables rules evaluated before any rules added via the ufw command
+ufw_mangle_rules: ""
+
+# raw iptables rules evaluated before any rules added via the ufw command
+advanced_ufw_before6_rules: ""
+# raw iptables rules evaluated after any rules added via the ufw command
+advanced_ufw_after6_rules: ""
 
 ufw_logging: "on"
 root_nbd: false
+
+# State of the firewall, can be 'enabled' or 'disabled'
+ufw_enable_geoip_blocking: false
+
+# Liste des codes pays ISO 3166-1 alpha-2 autorisés si ufw_enable_geoip_blocking est true
+# Si cette liste est vide, la politique GeoIP n'aura pas d'effet de "liste blanche" globale,
+# seuls les pays DENIED seront bloqués si ufw_denied_countries est défini.
+# Ex: ["FR", "BE", "CH", "CA", "US"]
+ufw_allowed_countries: []
+
+# Liste des codes pays ISO 3166-1 alpha-2 à bloquer explicitement si ufw_enable_geoip_blocking est true
+# Ex: ["RU", "CN", "KP"]
+ufw_denied_countries: []

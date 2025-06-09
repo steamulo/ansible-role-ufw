@@ -1,0 +1,6 @@
+---
+
+- name: Reload ufw
+  ansible.builtin.command: ufw reload
+  listen: restart ufw
+  when: not ansible_check_mode and ufw_state | default('enabled') == 'enabled'

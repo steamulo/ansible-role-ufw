@@ -1,0 +1,123 @@
+---
+
+- name: Install dependencies for GeoIP blocking
+  ansible.builtin.apt:
+    name: "{{ ufw_geoip_dependencies }}"
+    state: present
+  when: ufw_enable_geoip_blocking | default(false) and not ansible_check_mode
+
+- name: Create xt_geoip directory
+  ansible.builtin.file:
+    path: /usr/share/xt_geoip
+    state: directory
+    mode: '0755'
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Configure MaxMind GeoIP Update
+  ansible.builtin.template:
+    src: geoipupdate.conf.j2
+    dest: /etc/GeoIP.conf
+    owner: root
+    group: root
+    mode: '0600'
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Extract license key from GeoIP.conf
+  ansible.builtin.shell: "grep ^LicenseKey /etc/GeoIP.conf | cut -d' ' -f2"
+  register: geoip_license_key
+  changed_when: false
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Check if GeoLite2-Country.zip already exists
+  ansible.builtin.stat:
+    path: /usr/share/xt_geoip/GeoLite2-Country.zip
+  register: geolite2_country_zip_stat
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Download GeoLite2-Country.zip
+  ansible.builtin.get_url:
+    url: "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country-CSV&license_key={{ geoip_license_key.stdout }}&suffix=zip"
+    dest: /usr/share/xt_geoip/GeoLite2-Country.zip
+    mode: '0644'
+  when: ufw_enable_geoip_blocking | default(false) and not geolite2_country_zip_stat.stat.exists
+
+- name: Check if GeoLite2 CSV files already exist
+  ansible.builtin.stat:
+    path: /usr/share/xt_geoip/GeoLite2-Country-Blocks-IPv4.csv
+  register: geolite2_csv_stat
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Extract GeoLite2-Country.zip without creating subdirectories
+  ansible.builtin.shell: "unzip -o -j /usr/share/xt_geoip/GeoLite2-Country.zip -d /usr/share/xt_geoip/"
+  args:
+    creates: /usr/share/xt_geoip/GeoLite2-Country-Blocks-IPv4.csv
+  when: ufw_enable_geoip_blocking | default(false) and not geolite2_csv_stat.stat.exists
+
+- name: Check extracted GeoLite2 files permissions
+  ansible.builtin.stat:
+    path: /usr/share/xt_geoip/GeoLite2-Country-Blocks-IPv4.csv
+  register: geolite2_perm_stat
+  when: ufw_enable_geoip_blocking | default(false) and geolite2_csv_stat.stat.exists | default(false)
+
+- name: Apply permissions to extracted GeoLite2 files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    recurse: yes
+    mode: '0755'
+  with_fileglob:
+    - "/usr/share/xt_geoip/GeoLite2-*/**"
+  when: ufw_enable_geoip_blocking | default(false) and 
+        geolite2_csv_stat.stat.exists | default(false) and 
+        (geolite2_perm_stat.stat.mode is defined and geolite2_perm_stat.stat.mode != '0755')
+
+- name: Check if dbip-country-lite.csv.gz already exists
+  ansible.builtin.stat:
+    path: /usr/share/xt_geoip/dbip-country-lite.csv.gz
+  register: dbip_gz_stat
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Download dbip-country-lite.csv.gz
+  ansible.builtin.get_url:
+    url: "https://download.db-ip.com/free/dbip-country-lite-{{ lookup('pipe', 'date +%Y-%m') }}.csv.gz"
+    dest: /usr/share/xt_geoip/dbip-country-lite.csv.gz
+    mode: '0644'
+  when: ufw_enable_geoip_blocking | default(false) and not dbip_gz_stat.stat.exists
+
+- name: Check if dbip-country-lite.csv already exists
+  ansible.builtin.stat:
+    path: /usr/share/xt_geoip/dbip-country-lite.csv
+  register: dbip_csv_stat
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Extract dbip-country-lite.csv.gz
+  ansible.builtin.command: gunzip -f /usr/share/xt_geoip/dbip-country-lite.csv.gz
+  args:
+    creates: /usr/share/xt_geoip/dbip-country-lite.csv
+  when: ufw_enable_geoip_blocking | default(false) and not dbip_csv_stat.stat.exists
+
+- name: Check dbip-country-lite.csv permissions
+  ansible.builtin.stat:
+    path: /usr/share/xt_geoip/dbip-country-lite.csv
+  register: dbip_perm_stat
+  when: ufw_enable_geoip_blocking | default(false) and dbip_csv_stat.stat.exists | default(false)
+
+- name: Apply permissions to dbip-country-lite.csv
+  ansible.builtin.file:
+    path: /usr/share/xt_geoip/dbip-country-lite.csv
+    mode: '0755'
+  when: ufw_enable_geoip_blocking | default(false) and 
+        dbip_csv_stat.stat.exists | default(false) and 
+        (dbip_perm_stat.stat.mode is defined and dbip_perm_stat.stat.mode != '0755')
+
+- name: Check if xt_geoip database already exists
+  ansible.builtin.stat:
+    path: /usr/share/xt_geoip/country.db
+  register: geoip_db_stat
+  when: ufw_enable_geoip_blocking | default(false)
+
+- name: Build xt_geoip database for iptables
+  ansible.builtin.shell: /usr/libexec/xtables-addons/xt_geoip_build -D /usr/share/xt_geoip */csv
+  args:
+    chdir: /usr/share/xt_geoip
+  when: ufw_enable_geoip_blocking | default(false) and not geoip_db_stat.stat.exists
+  notify: restart ufw
